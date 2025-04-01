@@ -2,9 +2,41 @@
 
 #root {
     background-color: black;
-    font-family: monospace;
+    font-family: "Roboto Mono", monospace;
 }
 
 @theme {
     --color-text-muted: #a6accd;
+    --color-mat-yellow: #ffcb6b;
+    --color-mat-blue: #82aaff;
+    --color-mat-orange: #f78c6c;
+    --color-mat-cyan: #89ddff;
+    --color-mat-green: #c3e88d;
+    --color-mat-highlight: #1a1c25;
+}
+
+.button-selected {
+    color: var(--color-mat-yellow);
+}
+
+.search-text:focus-visible {
+    outline: none;
+}
+
+.search-value-selected {
+    color: var(--color-mat-cyan);
+}
+
+@keyframes blink {
+    0% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0;
+    }
+
+    100% {
+        opacity: 1;
+    }
 }
