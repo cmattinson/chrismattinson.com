@@ -6,11 +6,14 @@ import { Contact } from "./Contact.tsx";
 import { useNavStore } from "./stores/nav.ts";
 import { Nav } from "./Nav.tsx";
 import { Routes, Route } from "react-router";
+import { Construction } from "./Construction.tsx";
 
 export default function App() {
     const searchMode = useNavStore((state) => state.searchMode);
 
-    return searchMode ? (
+    return import.meta.env.PROD ? (
+        <Construction />
+    ) : searchMode ? (
         <Search />
     ) : (
         <div className="flex flex-col flex-wrap min-h-screen w-full pt-4 pl-4 pr-8">
