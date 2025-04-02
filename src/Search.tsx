@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef } from "react";
+import { useNavStore } from "./stores/nav";
+import { useNavigate } from "react-router";
 
 type Href = {
     link: string;
@@ -14,6 +16,8 @@ type SearchItem = {
 export function Search() {
     const [input, setInput] = useState("");
     const [selected, setSelected] = useState(0);
+    const navigate = useNavigate();
+    const { setSearchMode } = useNavStore();
     const inputRef = useRef<HTMLInputElement>(null);
     const [searchItems, _] = useState<SearchItem[]>([
         {
@@ -100,6 +104,17 @@ export function Search() {
                         setSelected(selected - 1);
                     }
                 }
+
+                console.log(event.key);
+
+                if (event.key === "Enter") {
+                    if (!filteredItems[selected].href.external) {
+                        navigate(filteredItems[selected].href.link);
+                        setSearchMode(false);
+                    } else {
+                        console.log("Navigate to", filteredItems[selected].href);
+                    }
+                }
             } else {
                 return;
             }
@@ -110,7 +125,7 @@ export function Search() {
         return () => {
             document.removeEventListener("keydown", handleKeyDown);
         };
-    }, [selected, filteredItems.length]);
+    }, [selected, filteredItems.length, filteredItems[selected]]);
 
     return (
         <div className="flex justify-center items-center flex-wrap min-h-screen w-full text-text-muted">
