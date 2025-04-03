@@ -3,19 +3,53 @@ on:
     branches:
       - main
   workflow_dispatch:
-  
 jobs:
-  run_pull:
-    name: run pull
-    runs-on: ubuntu-latest
-    
-    steps:
-    - name: install ssh keys
+  name: deploy
+  runs-on: ubuntu-latest
+  steps:
+    - name: Copy files to VPS
+      env:
+        SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
       run: |
-        install -m 600 -D /dev/null ~/.ssh/id_rsa
-        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
-        ssh-keyscan -H ${{ secrets.SSH_HOST }} > ~/.ssh/known_hosts
-    - name: connect and pull
-      run: ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "cd ${{ secrets.WORK_DIR }} && git checkout ${{ secrets.MAIN_BRANCH }} && git pull && bun install && bun run build && exit"
-    - name: cleanup
-      run: rm -rf ~/.ssh
+        mkdir -p ~/.ssh
+        echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+        ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
+        rsync -avz --delete ./ ${{ secrets.SSH_USERNAME}}@${{ secrets.SSH_HOST }}:${{ secrets.WORK_DIR }}
+    - name: Execute remote commands (Install & Build)
+      uses: appleboy/ssh-action@v1
+      with:
+        host: ${{ secrets.SSH_HOST }}
+        username: ${{ secrets.SSH_USERNAME }}
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        port: ${{ secrets.SSH_PORT || 22 }}
+        script: |
+          export DEPLOY_DIR=/var/www/www.chrismattinson
+          cd $DEPLOY_DIR
+          echo "Changed directory to $DEPLOY_DIR"
+          if ! command -v bun &> /dev/null
+          then
+              echo "bun could not be found, installing..."
+              curl -fsSL https://bun.sh/install | bash
+              export BUN_INSTALL="$HOME/.bun"
+              export PATH="$BUN_INSTALL/bin:$PATH"
+              echo "Bun installed."
+          else
+              echo "Bun already installed."
+              export BUN_INSTALL="$HOME/.bun"
+              export PATH="$BUN_INSTALL/bin:$PATH"
+          fi
+
+          echo "Bun version: $(bun --version)"
+
+          echo "Installing dependencies with bun..."
+          bun install --frozen-lockfile
+          echo "Dependencies installed."
+
+          echo "Building React app with bun..."
+          bun run build
+          echo "Build complete. Check the 'dist' directory."
+
+          echo "Restarting application server..."
+          sudo systemctl restart nginx
+          echo "Deployment successful!"
