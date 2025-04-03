@@ -4,52 +4,56 @@ on:
       - main
   workflow_dispatch:
 jobs:
-  name: deploy
-  runs-on: ubuntu-latest
-  steps:
-    - name: Copy files to VPS
-      env:
-        SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-      run: |
-        mkdir -p ~/.ssh
-        echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
-        chmod 600 ~/.ssh/id_rsa
-        ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
-        rsync -avz --delete ./ ${{ secrets.SSH_USERNAME}}@${{ secrets.SSH_HOST }}:${{ secrets.WORK_DIR }}
-    - name: Execute remote commands (Install & Build)
-      uses: appleboy/ssh-action@v1
-      with:
-        host: ${{ secrets.SSH_HOST }}
-        username: ${{ secrets.SSH_USERNAME }}
-        key: ${{ secrets.SSH_PRIVATE_KEY }}
-        port: ${{ secrets.SSH_PORT || 22 }}
-        script: |
-          export DEPLOY_DIR=/var/www/www.chrismattinson
-          cd $DEPLOY_DIR
-          echo "Changed directory to $DEPLOY_DIR"
-          if ! command -v bun &> /dev/null
-          then
-              echo "bun could not be found, installing..."
-              curl -fsSL https://bun.sh/install | bash
-              export BUN_INSTALL="$HOME/.bun"
-              export PATH="$BUN_INSTALL/bin:$PATH"
-              echo "Bun installed."
-          else
-              echo "Bun already installed."
-              export BUN_INSTALL="$HOME/.bun"
-              export PATH="$BUN_INSTALL/bin:$PATH"
-          fi
+  deploy:
+    name: deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Copy files to VPS
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USERNAME: ${{ secrets.SSH_USERNAME }}
+          WORK_DIR: ${{ secrets.WORK_DIR }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H $SSH_HOST >> ~/.ssh/known_hosts
+          rsync -avz --delete ./ $SSH_USERNAME@$SSH_HOST:$WORK_DIR
+      - name: Execute remote commands (Install & Build)
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          script: |
+            export DEPLOY_DIR=${{ secrets.WORK_DIR }}
+            cd $DEPLOY_DIR
+            echo "Changed directory to $DEPLOY_DIR"
+            if ! command -v bun &> /dev/null
+            then
+                echo "bun could not be found, installing..."
+                curl -fsSL https://bun.sh/install | bash
+                export BUN_INSTALL="$HOME/.bun"
+                export PATH="$BUN_INSTALL/bin:$PATH"
+                echo "Bun installed."
+            else
+                echo "Bun already installed."
+                export BUN_INSTALL="$HOME/.bun"
+                export PATH="$BUN_INSTALL/bin:$PATH"
+            fi
 
-          echo "Bun version: $(bun --version)"
+            echo "Bun version: $(bun --version)"
 
-          echo "Installing dependencies with bun..."
-          bun install --frozen-lockfile
-          echo "Dependencies installed."
+            echo "Installing dependencies with bun..."
+            bun install --frozen-lockfile
+            echo "Dependencies installed."
 
-          echo "Building React app with bun..."
-          bun run build
-          echo "Build complete. Check the 'dist' directory."
+            echo "Building React app with bun..."
+            bun run build
+            echo "Build complete. Check the 'dist' directory."
 
-          echo "Restarting application server..."
-          sudo systemctl restart nginx
-          echo "Deployment successful!"
+            echo "Restarting application server..."
+            sudo systemctl restart nginx
+            echo "Deployment successful!"
